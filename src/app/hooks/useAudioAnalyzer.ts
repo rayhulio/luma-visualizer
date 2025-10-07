@@ -3,20 +3,24 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 const useAudioAnalyzer = () => {
-  const [volume, setVolume] = useState(0);
+  const [amplitude, setAmplitude] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
   const processAudio = useCallback((dataArray: Uint8Array) => {
-    const BASS_FREQUENCY_RANGE = { start: 1, end: 4 }; // ~172Hz to ~689Hz
+    // A broader frequency range for a more stable and responsive amplitude
+    const fullFrequencyRange = { start: 0, end: dataArray.length };
 
-    const bassEnergy = dataArray
-      .slice(BASS_FREQUENCY_RANGE.start, BASS_FREQUENCY_RANGE.end)
+    const currentVolume = dataArray
+      .slice(fullFrequencyRange.start, fullFrequencyRange.end)
       .reduce((acc, val) => acc + val, 0);
 
-    setVolume(bassEnergy);
+    // A simple smoothing algorithm to prevent jittery brightness changes
+    setAmplitude(prev => (prev * 0.8) + (currentVolume * 0.2));
+
   }, []);
 
   const start = useCallback(async () => {
@@ -28,8 +32,8 @@ const useAudioAnalyzer = () => {
       audioContextRef.current = context;
 
       const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.fftSize = 256; // A good balance of performance and detail
+      analyser.smoothingTimeConstant = 0.8; // A higher value for smoother amplitude readings
       analyserRef.current = analyser;
 
       const source = context.createMediaStreamSource(stream);
@@ -65,7 +69,7 @@ const useAudioAnalyzer = () => {
     };
   }, []);
 
-  return { volume, start, isInitialized };
+  return { amplitude, start, isInitialized };
 };
 
 export default useAudioAnalyzer;
